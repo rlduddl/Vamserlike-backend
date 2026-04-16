@@ -81,23 +81,75 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.LoginAsync(request);
-            return Ok(ApiResponse<LoginResponse>.Ok(result, "로그인 성공"));
+            return Ok(ApiResponse<LoginResponse>.Ok(result, result.Message));
         }
         catch (CognitoModel.UserNotConfirmedException)
         {
-            return Conflict(ApiResponse<LoginResponse>.Fail("이메일 인증이 완료되지 않았습니다. 인증 후 다시 로그인하세요."));
-        }
-        catch (CognitoModel.NotAuthorizedException)
-        {
-            return Unauthorized(ApiResponse<LoginResponse>.Fail("이메일 또는 비밀번호가 올바르지 않습니다."));
+            var response = new LoginResponse
+            {
+                Status = "CONFIRM_REQUIRED",
+                Message = "이메일 인증이 완료되지 않았습니다. 인증 후 다시 로그인하세요.",
+                RequiresConfirmation = true,
+                CanProceedToSignup = false
+            };
+
+            return Conflict(new ApiResponse<LoginResponse>
+            {
+                Success = false,
+                Message = response.Message,
+                Data = response
+            });
         }
         catch (CognitoModel.UserNotFoundException)
         {
-            return Unauthorized(ApiResponse<LoginResponse>.Fail("이메일 또는 비밀번호가 올바르지 않습니다."));
+            var response = new LoginResponse
+            {
+                Status = "SIGNUP_SUGGESTED",
+                Message = "계정이 없습니다. 같은 정보로 회원가입을 진행할 수 있습니다.",
+                RequiresConfirmation = false,
+                CanProceedToSignup = true
+            };
+
+            return NotFound(new ApiResponse<LoginResponse>
+            {
+                Success = false,
+                Message = response.Message,
+                Data = response
+            });
+        }
+        catch (CognitoModel.NotAuthorizedException)
+        {
+            var response = new LoginResponse
+            {
+                Status = "INVALID_CREDENTIALS",
+                Message = "이메일 또는 비밀번호가 올바르지 않습니다.",
+                RequiresConfirmation = false,
+                CanProceedToSignup = false
+            };
+
+            return Unauthorized(new ApiResponse<LoginResponse>
+            {
+                Success = false,
+                Message = response.Message,
+                Data = response
+            });
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<LoginResponse>.Fail(ex.Message));
+            var response = new LoginResponse
+            {
+                Status = "LOGIN_FAILED",
+                Message = ex.Message,
+                RequiresConfirmation = false,
+                CanProceedToSignup = false
+            };
+
+            return BadRequest(new ApiResponse<LoginResponse>
+            {
+                Success = false,
+                Message = response.Message,
+                Data = response
+            });
         }
     }
 }

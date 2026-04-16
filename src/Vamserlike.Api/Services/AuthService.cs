@@ -115,6 +115,10 @@ public class AuthService : IAuthService
 
         return new LoginResponse
         {
+            Status = "LOGIN_SUCCESS",
+            Message = "로그인 성공",
+            RequiresConfirmation = false,
+            CanProceedToSignup = false,
             AccessToken = authResult.AccessToken ?? string.Empty,
             IdToken = authResult.IdToken ?? string.Empty,
             RefreshToken = authResult.RefreshToken ?? string.Empty,
