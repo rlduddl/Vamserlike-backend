@@ -1,82 +1,151 @@
+using System.Security.Claims;
+using Amazon.CognitoIdentityProvider;
+using CognitoModel = Amazon.CognitoIdentityProvider.Model;
+using Microsoft.Extensions.Options;
+using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Dtos.Auth;
-using Vamserlike.Api.Models;
-using Vamserlike.Api.Repositories;
-using Vamserlike.Api.Utilities;
 
 namespace Vamserlike.Api.Services;
 
 public class AuthService : IAuthService
 {
-    private readonly IUserRepository _userRepository;
+    private readonly IAmazonCognitoIdentityProvider _cognito;
+    private readonly CognitoOptions _cognitoOptions;
 
-    public AuthService(IUserRepository userRepository)
+    public AuthService(
+        IAmazonCognitoIdentityProvider cognito,
+        IOptions<CognitoOptions> cognitoOptions)
     {
-        _userRepository = userRepository;
+        _cognito = cognito;
+        _cognitoOptions = cognitoOptions.Value;
     }
 
-    public AuthResponse Register(RegisterRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password) ||
-            string.IsNullOrWhiteSpace(request.Nickname))
-        {
-            throw new ArgumentException("이메일, 비밀번호, 닉네임은 필수입니다.");
-        }
+    private string ClientId =>
+        string.IsNullOrWhiteSpace(_cognitoOptions.ClientId)
+            ? throw new InvalidOperationException("Cognito ClientId가 설정되지 않았습니다.")
+            : _cognitoOptions.ClientId;
 
+    public async Task<AuthActionResponse> SignUpAsync(SignUpRequest request)
+    {
         var email = request.Email.Trim().ToLowerInvariant();
 
-        if (_userRepository.ExistsByEmail(email))
-        {
-            throw new InvalidOperationException("이미 가입된 이메일입니다.");
-        }
+        var response = await _cognito.SignUpAsync(
+            new CognitoModel.SignUpRequest
+            {
+                ClientId = ClientId,
+                Username = email,
+                Password = request.Password,
+                UserAttributes = new List<CognitoModel.AttributeType>
+                {
+                    new CognitoModel.AttributeType { Name = "email", Value = email },
+                    new CognitoModel.AttributeType { Name = "name", Value = request.Nickname.Trim() }
+                }
+            });
 
-        var user = new User
+        var isConfirmed = response.UserConfirmed ?? false;
+
+        return new AuthActionResponse
         {
+            RequiresConfirmation = !isConfirmed,
+            NextStep = isConfirmed ? "LOGIN" : "CONFIRM_SIGN_UP",
+            Message = isConfirmed
+                ? "회원가입이 완료되었습니다. 바로 로그인 가능합니다."
+                : "회원가입 완료. 이메일 인증코드를 입력하세요.",
+            UserSub = response.UserSub
+        };
+    }
+
+    public async Task<AuthActionResponse> ConfirmSignUpAsync(ConfirmSignUpRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        await _cognito.ConfirmSignUpAsync(
+            new CognitoModel.ConfirmSignUpRequest
+            {
+                ClientId = ClientId,
+                Username = email,
+                ConfirmationCode = request.ConfirmationCode.Trim()
+            });
+
+        return new AuthActionResponse
+        {
+            RequiresConfirmation = false,
+            NextStep = "LOGIN",
+            Message = "이메일 인증이 완료되었습니다. 다시 로그인하세요."
+        };
+    }
+
+    public async Task<AuthActionResponse> ResendConfirmationAsync(ResendConfirmationRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        await _cognito.ResendConfirmationCodeAsync(
+            new CognitoModel.ResendConfirmationCodeRequest
+            {
+                ClientId = ClientId,
+                Username = email
+            });
+
+        return new AuthActionResponse
+        {
+            RequiresConfirmation = true,
+            NextStep = "CONFIRM_SIGN_UP",
+            Message = "인증코드를 다시 전송했습니다."
+        };
+    }
+
+    public async Task<LoginResponse> LoginAsync(LoginRequest request)
+    {
+        var email = request.Email.Trim().ToLowerInvariant();
+
+        var response = await _cognito.InitiateAuthAsync(
+            new CognitoModel.InitiateAuthRequest
+            {
+                ClientId = ClientId,
+                AuthFlow = "USER_PASSWORD_AUTH",
+                AuthParameters = new Dictionary<string, string>
+                {
+                    ["USERNAME"] = email,
+                    ["PASSWORD"] = request.Password
+                }
+            });
+
+        var authResult = response.AuthenticationResult
+            ?? throw new InvalidOperationException("로그인 응답에 토큰이 없습니다.");
+
+        return new LoginResponse
+        {
+            AccessToken = authResult.AccessToken ?? string.Empty,
+            IdToken = authResult.IdToken ?? string.Empty,
+            RefreshToken = authResult.RefreshToken ?? string.Empty,
+            ExpiresIn = authResult.ExpiresIn ?? 0,
+            TokenType = authResult.TokenType ?? "Bearer"
+        };
+    }
+
+    public AuthMeResponse GetCurrentUser(ClaimsPrincipal user)
+    {
+        var userId =
+            user.FindFirst("sub")?.Value ??
+            user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
+            string.Empty;
+
+        var email =
+            user.FindFirst("email")?.Value ??
+            user.FindFirst(ClaimTypes.Email)?.Value ??
+            string.Empty;
+
+        var userName =
+            user.FindFirst("cognito:username")?.Value ??
+            user.FindFirst(ClaimTypes.Name)?.Value ??
+            user.FindFirst("name")?.Value ??
+            email;
+
+        return new AuthMeResponse
+        {
+            UserId = userId,
             Email = email,
-            Nickname = request.Nickname.Trim(),
-            PasswordHash = PasswordHasher.Hash(request.Password)
-        };
-
-        _userRepository.Add(user);
-
-        return new AuthResponse
-        {
-            UserId = user.Id,
-            Email = user.Email,
-            Nickname = user.Nickname,
-            AccessToken = "TODO-JWT"
-        };
-    }
-
-    public AuthResponse Login(LoginRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Email) ||
-            string.IsNullOrWhiteSpace(request.Password))
-        {
-            throw new ArgumentException("이메일과 비밀번호는 필수입니다.");
-        }
-
-        var email = request.Email.Trim().ToLowerInvariant();
-        var user = _userRepository.GetByEmail(email);
-
-        if (user is null)
-        {
-            throw new UnauthorizedAccessException("이메일 또는 비밀번호가 올바르지 않습니다.");
-        }
-
-        var isValid = PasswordHasher.Verify(request.Password, user.PasswordHash);
-
-        if (!isValid)
-        {
-            throw new UnauthorizedAccessException("이메일 또는 비밀번호가 올바르지 않습니다.");
-        }
-
-        return new AuthResponse
-        {
-            UserId = user.Id,
-            Email = user.Email,
-            Nickname = user.Nickname,
-            AccessToken = "TODO-JWT"
+            UserName = userName
         };
     }
 }

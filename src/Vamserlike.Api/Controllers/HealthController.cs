@@ -12,8 +12,8 @@ public class HealthController : ControllerBase
     {
         return Ok(ApiResponse<object>.Ok(new
         {
-            status = "ok",
-            serverTimeUtc = DateTime.UtcNow
-        }, "서버 정상"));
+            Status = "ok",
+            UtcNow = DateTime.UtcNow
+        }, "api is running"));
     }
 }
