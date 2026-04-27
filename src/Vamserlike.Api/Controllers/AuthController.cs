@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using CognitoModel = Amazon.CognitoIdentityProvider.Model;
 using Vamserlike.Api.Dtos.Auth;
@@ -151,5 +152,13 @@ public class AuthController : ControllerBase
                 Data = response
             });
         }
+    }
+
+    [Authorize]
+    [HttpGet("me")]
+    public ActionResult<ApiResponse<AuthMeResponse>> Me()
+    {
+        var me = _authService.GetCurrentUser(User);
+        return Ok(ApiResponse<AuthMeResponse>.Ok(me, "현재 로그인 사용자"));
     }
 }

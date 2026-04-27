@@ -140,10 +140,11 @@ public class AuthService : IAuthService
             string.Empty;
 
         var userName =
-            user.FindFirst("cognito:username")?.Value ??
+            user.FindFirst("username")?.Value ??              // access token에서 중요
+            user.FindFirst("cognito:username")?.Value ??     // id token에서 올 수 있음
             user.FindFirst(ClaimTypes.Name)?.Value ??
             user.FindFirst("name")?.Value ??
-            email;
+            string.Empty;
 
         return new AuthMeResponse
         {
