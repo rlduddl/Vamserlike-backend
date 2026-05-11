@@ -22,31 +22,59 @@ public class PlayerController : ControllerBase
         _playerService = playerService;
     }
 
+    // 로그인 후 최초 플레이어 데이터 생성
     [HttpPost("me/init")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> InitMe()
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> InitMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.InitializeMyPlayerAsync(currentUser);
+        var result = await _playerService.InitAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "player initialized"));
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "player initialized"));
     }
 
+    // 내 플레이어 정보 조회
     [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> GetMe()
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> GetMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.GetMyStateAsync(currentUser);
+        var result = await _playerService.GetMeAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "player state"));
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "player state"));
     }
 
+    // 게임 종료 후 점수/레벨/플레이 캐릭터 저장
     [HttpPut("me/progress")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> UpdateProgress(
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UpdateProgress(
         [FromBody] UpdateProgressRequest request)
     {
-        var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.UpdateMyProgressAsync(currentUser, request);
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
+            var result = await _playerService.UpdateProgressAsync(currentUser, request);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "progress updated"));
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "progress updated"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(ex.Message));
+        }
+    }
+
+    // 닉네임 저장 또는 수정
+    [HttpPut("me/nickname")]
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> SetNickname(
+        [FromBody] SetNicknameRequest request)
+    {
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
+            var result = await _playerService.SetNicknameAsync(currentUser, request);
+
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "nickname updated"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(ex.Message));
+        }
     }
 }

@@ -20,14 +20,26 @@ public class AuthService : IAuthService
         _cognitoOptions = cognitoOptions.Value;
     }
 
+    // Cognito App Client ID 반환
     private string ClientId =>
         string.IsNullOrWhiteSpace(_cognitoOptions.ClientId)
             ? throw new InvalidOperationException("Cognito ClientId가 설정되지 않았습니다.")
             : _cognitoOptions.ClientId;
 
+    // 회원가입
     public async Task<AuthActionResponse> SignUpAsync(SignUpRequest request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
+
+        var attributes = new List<CognitoModel.AttributeType>
+        {
+            new CognitoModel.AttributeType
+            {
+                Name = "email",
+                Value = email
+            }
+        };
+
 
         var response = await _cognito.SignUpAsync(
             new CognitoModel.SignUpRequest
@@ -35,11 +47,7 @@ public class AuthService : IAuthService
                 ClientId = ClientId,
                 Username = email,
                 Password = request.Password,
-                UserAttributes = new List<CognitoModel.AttributeType>
-                {
-                    new CognitoModel.AttributeType { Name = "email", Value = email },
-                    new CognitoModel.AttributeType { Name = "name", Value = request.Nickname.Trim() }
-                }
+                UserAttributes = attributes
             });
 
         var isConfirmed = response.UserConfirmed ?? false;
@@ -55,6 +63,7 @@ public class AuthService : IAuthService
         };
     }
 
+    // 이메일 인증코드 확인
     public async Task<AuthActionResponse> ConfirmSignUpAsync(ConfirmSignUpRequest request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -75,6 +84,7 @@ public class AuthService : IAuthService
         };
     }
 
+    // 인증코드 재전송
     public async Task<AuthActionResponse> ResendConfirmationAsync(ResendConfirmationRequest request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -94,6 +104,7 @@ public class AuthService : IAuthService
         };
     }
 
+    // 로그인
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
     {
         var email = request.Email.Trim().ToLowerInvariant();
@@ -127,6 +138,7 @@ public class AuthService : IAuthService
         };
     }
 
+    // JWT 토큰에서 현재 사용자 정보 추출
     public AuthMeResponse GetCurrentUser(ClaimsPrincipal user)
     {
         var userId =
@@ -134,17 +146,25 @@ public class AuthService : IAuthService
             user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
             string.Empty;
 
+        var userName =
+            user.FindFirst("username")?.Value ??
+            user.FindFirst("cognito:username")?.Value ??
+            user.FindFirst(ClaimTypes.Name)?.Value ??
+            user.FindFirst("name")?.Value ??
+            string.Empty;
+
         var email =
             user.FindFirst("email")?.Value ??
             user.FindFirst(ClaimTypes.Email)?.Value ??
             string.Empty;
 
-        var userName =
-            user.FindFirst("username")?.Value ??              // access token에서 중요
-            user.FindFirst("cognito:username")?.Value ??     // id token에서 올 수 있음
-            user.FindFirst(ClaimTypes.Name)?.Value ??
-            user.FindFirst("name")?.Value ??
-            string.Empty;
+        // access token에는 email 클레임이 비어 있을 수 있어서 보정
+        if (string.IsNullOrWhiteSpace(email) &&
+            !string.IsNullOrWhiteSpace(userName) &&
+            userName.Contains("@"))
+        {
+            email = userName;
+        }
 
         return new AuthMeResponse
         {
