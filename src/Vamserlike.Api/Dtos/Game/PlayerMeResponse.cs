@@ -25,4 +25,10 @@ public class PlayerMeResponse
 
     // 총 플레이 횟수
     public int TotalPlayCount { get; set; }
+
+    // 누적 적 처치 수
+    public int TotalKillCount { get; set; }
+
+    // 해금된 캐릭터 목록
+    public List<string> UnlockedCharacterIds { get; set; } = new();
 }

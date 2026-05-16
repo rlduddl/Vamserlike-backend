@@ -42,7 +42,7 @@ public class PlayerController : ControllerBase
         return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "player state"));
     }
 
-    // 게임 종료 후 점수/레벨/플레이 캐릭터 저장
+    // 게임 결과 저장
     [HttpPut("me/progress")]
     public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UpdateProgress(
         [FromBody] UpdateProgressRequest request)
@@ -76,5 +76,15 @@ public class PlayerController : ControllerBase
         {
             return BadRequest(ApiResponse<PlayerMeResponse>.Fail(ex.Message));
         }
+    }
+
+    // 랭킹 조회
+    [AllowAnonymous]
+    [HttpGet("ranking")]
+    public async Task<ActionResult<ApiResponse<List<RankingItemResponse>>>> GetRanking([FromQuery] int take = 20)
+    {
+        var result = await _playerService.GetRankingAsync(take);
+
+        return Ok(ApiResponse<List<RankingItemResponse>>.Ok(result, "ranking loaded"));
     }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
 using Microsoft.Extensions.Options;
@@ -48,11 +49,16 @@ public class DynamoPlayerRepository : IPlayerRepository
             BestScore = GetInt(item, "BestScore"),
             HighestLevel = GetInt(item, "HighestLevel"),
             TotalPlayCount = GetInt(item, "TotalPlayCount"),
+            TotalKillCount = GetInt(item, "TotalKillCount"),
+            UnlockedCharacterIds = GetStringList(
+                item,
+                "UnlockedCharacterIds",
+                new List<string> { "rice_farmer", "barley_farmer" }),
             UpdatedAtUtc = GetDateTime(item, "UpdatedAtUtc")
         };
     }
 
-    // 플레이어 전체 프로필 저장
+    // 플레이어 전체 저장
     public async Task PutAsync(PlayerProfile profile)
     {
         profile.UpdatedAtUtc = DateTime.UtcNow;
@@ -67,6 +73,11 @@ public class DynamoPlayerRepository : IPlayerRepository
             ["BestScore"] = new AttributeValue { N = profile.BestScore.ToString() },
             ["HighestLevel"] = new AttributeValue { N = profile.HighestLevel.ToString() },
             ["TotalPlayCount"] = new AttributeValue { N = profile.TotalPlayCount.ToString() },
+            ["TotalKillCount"] = new AttributeValue { N = profile.TotalKillCount.ToString() },
+            ["UnlockedCharacterIds"] = new AttributeValue
+            {
+                S = JsonSerializer.Serialize(profile.UnlockedCharacterIds)
+            },
             ["UpdatedAtUtc"] = new AttributeValue { S = profile.UpdatedAtUtc.ToString("O") }
         };
 
@@ -75,6 +86,40 @@ public class DynamoPlayerRepository : IPlayerRepository
             TableName = _tableName,
             Item = item
         });
+    }
+
+    // 랭킹용 전체 조회
+    public async Task<List<PlayerProfile>> GetAllAsync()
+    {
+        var response = await _dynamoDb.ScanAsync(new ScanRequest
+        {
+            TableName = _tableName
+        });
+
+        var result = new List<PlayerProfile>();
+
+        foreach (var item in response.Items)
+        {
+            result.Add(new PlayerProfile
+            {
+                UserId = item["UserId"].S,
+                Email = GetString(item, "Email"),
+                Nickname = GetString(item, "Nickname", "guest"),
+                SelectedCharacterId = GetString(item, "SelectedCharacterId", "rice_farmer"),
+                LastPlayedCharacterId = GetString(item, "LastPlayedCharacterId", "rice_farmer"),
+                BestScore = GetInt(item, "BestScore"),
+                HighestLevel = GetInt(item, "HighestLevel"),
+                TotalPlayCount = GetInt(item, "TotalPlayCount"),
+                TotalKillCount = GetInt(item, "TotalKillCount"),
+                UnlockedCharacterIds = GetStringList(
+                    item,
+                    "UnlockedCharacterIds",
+                    new List<string> { "rice_farmer", "barley_farmer" }),
+                UpdatedAtUtc = GetDateTime(item, "UpdatedAtUtc")
+            });
+        }
+
+        return result;
     }
 
     // 문자열 읽기
@@ -117,5 +162,30 @@ public class DynamoPlayerRepository : IPlayerRepository
         }
 
         return DateTime.UtcNow;
+    }
+
+    // JSON 문자열 리스트 읽기
+    private static List<string> GetStringList(
+        Dictionary<string, AttributeValue> item,
+        string key,
+        List<string> defaultValue)
+    {
+        if (item.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value.S))
+        {
+            try
+            {
+                var parsed = JsonSerializer.Deserialize<List<string>>(value.S);
+                if (parsed != null)
+                {
+                    return parsed;
+                }
+            }
+            catch
+            {
+                // 파싱 실패 시 기본값 사용
+            }
+        }
+
+        return defaultValue;
     }
 }
