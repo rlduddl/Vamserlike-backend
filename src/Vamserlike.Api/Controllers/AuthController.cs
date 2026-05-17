@@ -18,78 +18,90 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
+    // 회원가입
+    // email + password + nickname(name)
     [HttpPost("signup")]
-    public async Task<ActionResult<ApiResponse<AuthActionResponse>>> SignUp([FromBody] SignUpRequest request)
+    public async Task<ActionResult<ApiResponse<AuthActionResponse>>> SignUp(
+        [FromBody] SignUpRequest request)
     {
         try
         {
             var result = await _authService.SignUpAsync(request);
-            return Ok(ApiResponse<AuthActionResponse>.Ok(result, result.Message));
+
+            return Ok(ApiResponse<AuthActionResponse>.Ok(
+                result,
+                result.Message));
         }
         catch (CognitoModel.UsernameExistsException)
         {
-            return Conflict(ApiResponse<AuthActionResponse>.Fail("이미 가입된 이메일입니다."));
+            return Conflict(ApiResponse<AuthActionResponse>.Fail(
+                "이미 가입된 이메일입니다."));
         }
         catch (CognitoModel.InvalidPasswordException ex)
         {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail($"비밀번호 정책 오류: {ex.Message}"));
+            return BadRequest(ApiResponse<AuthActionResponse>.Fail(
+                $"비밀번호 정책 오류: {ex.Message}"));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail(ex.Message));
+            return BadRequest(ApiResponse<AuthActionResponse>.Fail(
+                ex.Message));
         }
     }
 
+    // 이메일 인증코드 확인
     [HttpPost("confirm-signup")]
-    public async Task<ActionResult<ApiResponse<AuthActionResponse>>> ConfirmSignUp([FromBody] ConfirmSignUpRequest request)
+    public async Task<ActionResult<ApiResponse<AuthActionResponse>>> ConfirmSignUp(
+        [FromBody] ConfirmSignUpRequest request)
     {
         try
         {
             var result = await _authService.ConfirmSignUpAsync(request);
-            return Ok(ApiResponse<AuthActionResponse>.Ok(result, result.Message));
+
+            return Ok(ApiResponse<AuthActionResponse>.Ok(
+                result,
+                result.Message));
         }
         catch (CognitoModel.CodeMismatchException)
         {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail("인증코드가 올바르지 않습니다."));
+            return BadRequest(ApiResponse<AuthActionResponse>.Fail(
+                "인증코드가 올바르지 않습니다."));
         }
         catch (CognitoModel.ExpiredCodeException)
         {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail("인증코드가 만료되었습니다. 재전송 후 다시 시도하세요."));
+            return BadRequest(ApiResponse<AuthActionResponse>.Fail(
+                "인증코드가 만료되었습니다."));
         }
         catch (Exception ex)
         {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail(ex.Message));
+            return BadRequest(ApiResponse<AuthActionResponse>.Fail(
+                ex.Message));
         }
     }
 
-    [HttpPost("resend-confirmation")]
-    public async Task<ActionResult<ApiResponse<AuthActionResponse>>> ResendConfirmation([FromBody] ResendConfirmationRequest request)
-    {
-        try
-        {
-            var result = await _authService.ResendConfirmationAsync(request);
-            return Ok(ApiResponse<AuthActionResponse>.Ok(result, result.Message));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse<AuthActionResponse>.Fail(ex.Message));
-        }
-    }
-
+    // 로그인
     [HttpPost("login")]
-    public async Task<ActionResult<ApiResponse<LoginResponse>>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<ApiResponse<LoginResponse>>> Login(
+        [FromBody] LoginRequest request)
     {
         try
         {
             var result = await _authService.LoginAsync(request);
-            return Ok(ApiResponse<LoginResponse>.Ok(result, result.Message));
+
+            return Ok(ApiResponse<LoginResponse>.Ok(
+                result,
+                result.Message));
         }
         catch (CognitoModel.UserNotConfirmedException)
         {
             var response = new LoginResponse
             {
+                // 이메일 인증 필요
                 Status = "CONFIRM_REQUIRED",
-                Message = "이메일 인증이 완료되지 않았습니다. 인증 후 다시 로그인하세요.",
+
+                Message =
+                    "이메일 인증이 완료되지 않았습니다. 인증 후 다시 로그인하세요.",
+
                 RequiresConfirmation = true,
                 CanProceedToSignup = false
             };
@@ -105,8 +117,12 @@ public class AuthController : ControllerBase
         {
             var response = new LoginResponse
             {
+                // 회원가입 필요
                 Status = "SIGNUP_SUGGESTED",
-                Message = "계정이 없습니다. 같은 정보로 회원가입을 진행할 수 있습니다.",
+
+                Message =
+                    "계정이 없습니다. 회원가입을 진행하세요.",
+
                 RequiresConfirmation = false,
                 CanProceedToSignup = true
             };
@@ -122,8 +138,12 @@ public class AuthController : ControllerBase
         {
             var response = new LoginResponse
             {
+                // 비밀번호 불일치
                 Status = "INVALID_CREDENTIALS",
-                Message = "이메일 또는 비밀번호가 올바르지 않습니다.",
+
+                Message =
+                    "이메일 또는 비밀번호가 올바르지 않습니다.",
+
                 RequiresConfirmation = false,
                 CanProceedToSignup = false
             };
@@ -139,8 +159,11 @@ public class AuthController : ControllerBase
         {
             var response = new LoginResponse
             {
+                // 기타 로그인 실패
                 Status = "LOGIN_FAILED",
+
                 Message = ex.Message,
+
                 RequiresConfirmation = false,
                 CanProceedToSignup = false
             };
@@ -154,11 +177,15 @@ public class AuthController : ControllerBase
         }
     }
 
+    // 현재 로그인 사용자 정보 조회
     [Authorize]
     [HttpGet("me")]
     public ActionResult<ApiResponse<AuthMeResponse>> Me()
     {
         var me = _authService.GetCurrentUser(User);
-        return Ok(ApiResponse<AuthMeResponse>.Ok(me, "현재 로그인 사용자"));
+
+        return Ok(ApiResponse<AuthMeResponse>.Ok(
+            me,
+            "현재 로그인 사용자"));
     }
 }

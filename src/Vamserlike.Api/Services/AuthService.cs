@@ -33,20 +33,35 @@ public class AuthService : IAuthService
 
         var attributes = new List<CognitoModel.AttributeType>
         {
+            // 사용자 이메일
             new CognitoModel.AttributeType
             {
                 Name = "email",
                 Value = email
+            },
+
+            // 게임 닉네임
+            // Cognito의 name 속성 사용
+            new CognitoModel.AttributeType
+            {
+                Name = "name",
+                Value = request.Nickname
             }
         };
-
 
         var response = await _cognito.SignUpAsync(
             new CognitoModel.SignUpRequest
             {
+                // Cognito App Client ID
                 ClientId = ClientId,
+
+                // 로그인 ID
                 Username = email,
+
+                // 로그인 비밀번호
                 Password = request.Password,
+
+                // 사용자 속성
                 UserAttributes = attributes
             });
 
@@ -55,10 +70,15 @@ public class AuthService : IAuthService
         return new AuthActionResponse
         {
             RequiresConfirmation = !isConfirmed,
-            NextStep = isConfirmed ? "LOGIN" : "CONFIRM_SIGN_UP",
+
+            NextStep = isConfirmed
+                ? "LOGIN"
+                : "CONFIRM_SIGN_UP",
+
             Message = isConfirmed
                 ? "회원가입이 완료되었습니다. 바로 로그인 가능합니다."
                 : "회원가입 완료. 이메일 인증코드를 입력하세요.",
+
             UserSub = response.UserSub
         };
     }
@@ -84,25 +104,7 @@ public class AuthService : IAuthService
         };
     }
 
-    // 인증코드 재전송
-    public async Task<AuthActionResponse> ResendConfirmationAsync(ResendConfirmationRequest request)
-    {
-        var email = request.Email.Trim().ToLowerInvariant();
-
-        await _cognito.ResendConfirmationCodeAsync(
-            new CognitoModel.ResendConfirmationCodeRequest
-            {
-                ClientId = ClientId,
-                Username = email
-            });
-
-        return new AuthActionResponse
-        {
-            RequiresConfirmation = true,
-            NextStep = "CONFIRM_SIGN_UP",
-            Message = "인증코드를 다시 전송했습니다."
-        };
-    }
+ 
 
     // 로그인
     public async Task<LoginResponse> LoginAsync(LoginRequest request)
@@ -113,7 +115,10 @@ public class AuthService : IAuthService
             new CognitoModel.InitiateAuthRequest
             {
                 ClientId = ClientId,
+
+                // 이메일 + 비밀번호 로그인
                 AuthFlow = "USER_PASSWORD_AUTH",
+
                 AuthParameters = new Dictionary<string, string>
                 {
                     ["USERNAME"] = email,
@@ -128,11 +133,14 @@ public class AuthService : IAuthService
         {
             Status = "LOGIN_SUCCESS",
             Message = "로그인 성공",
+
             RequiresConfirmation = false,
             CanProceedToSignup = false,
+
             AccessToken = authResult.AccessToken ?? string.Empty,
             IdToken = authResult.IdToken ?? string.Empty,
             RefreshToken = authResult.RefreshToken ?? string.Empty,
+
             ExpiresIn = authResult.ExpiresIn ?? 0,
             TokenType = authResult.TokenType ?? "Bearer"
         };
@@ -141,24 +149,29 @@ public class AuthService : IAuthService
     // JWT 토큰에서 현재 사용자 정보 추출
     public AuthMeResponse GetCurrentUser(ClaimsPrincipal user)
     {
+        // Cognito 사용자 고유 ID
         var userId =
             user.FindFirst("sub")?.Value ??
             user.FindFirst(ClaimTypes.NameIdentifier)?.Value ??
             string.Empty;
 
+        // 게임 닉네임
+        // Cognito name 속성 우선 사용
         var userName =
+            user.FindFirst("name")?.Value ??
             user.FindFirst("username")?.Value ??
             user.FindFirst("cognito:username")?.Value ??
             user.FindFirst(ClaimTypes.Name)?.Value ??
-            user.FindFirst("name")?.Value ??
             string.Empty;
 
+        // 사용자 이메일
         var email =
             user.FindFirst("email")?.Value ??
             user.FindFirst(ClaimTypes.Email)?.Value ??
             string.Empty;
 
-        // access token에는 email 클레임이 비어 있을 수 있어서 보정
+        // access token에는 email 클레임이 비어 있을 수 있음
+        // username이 이메일 형태면 보정
         if (string.IsNullOrWhiteSpace(email) &&
             !string.IsNullOrWhiteSpace(userName) &&
             userName.Contains("@"))

@@ -12,10 +12,9 @@ public interface IPlayerService
     Task<PlayerMeResponse> GetMeAsync(AuthMeResponse currentUser);
 
     // 게임 결과 저장
-    Task<PlayerMeResponse> UpdateProgressAsync(AuthMeResponse currentUser, UpdateProgressRequest request);
-
-    // 닉네임 저장 또는 수정
-    Task<PlayerMeResponse> SetNicknameAsync(AuthMeResponse currentUser, SetNicknameRequest request);
+    Task<PlayerMeResponse> UpdateProgressAsync(
+        AuthMeResponse currentUser,
+        UpdateProgressRequest request);
 
     // 랭킹 조회
     Task<List<RankingItemResponse>> GetRankingAsync(int take);

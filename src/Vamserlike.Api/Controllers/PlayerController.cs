@@ -27,9 +27,12 @@ public class PlayerController : ControllerBase
     public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> InitMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
+
         var result = await _playerService.InitAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "player initialized"));
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(
+            result,
+            "플레이어 초기화 완료"));
     }
 
     // 내 플레이어 정보 조회
@@ -37,9 +40,12 @@ public class PlayerController : ControllerBase
     public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> GetMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
+
         var result = await _playerService.GetMeAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "player state"));
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(
+            result,
+            "플레이어 정보 조회 성공"));
     }
 
     // 게임 결과 저장
@@ -47,44 +53,27 @@ public class PlayerController : ControllerBase
     public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UpdateProgress(
         [FromBody] UpdateProgressRequest request)
     {
-        try
-        {
-            var currentUser = _authService.GetCurrentUser(User);
-            var result = await _playerService.UpdateProgressAsync(currentUser, request);
+        var currentUser = _authService.GetCurrentUser(User);
 
-            return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "progress updated"));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(ex.Message));
-        }
-    }
+        var result = await _playerService.UpdateProgressAsync(
+            currentUser,
+            request);
 
-    // 닉네임 저장 또는 수정
-    [HttpPut("me/nickname")]
-    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> SetNickname(
-        [FromBody] SetNicknameRequest request)
-    {
-        try
-        {
-            var currentUser = _authService.GetCurrentUser(User);
-            var result = await _playerService.SetNicknameAsync(currentUser, request);
-
-            return Ok(ApiResponse<PlayerMeResponse>.Ok(result, "nickname updated"));
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(ex.Message));
-        }
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(
+            result,
+            "게임 결과 저장 완료"));
     }
 
     // 랭킹 조회
     [AllowAnonymous]
     [HttpGet("ranking")]
-    public async Task<ActionResult<ApiResponse<List<RankingItemResponse>>>> GetRanking([FromQuery] int take = 20)
+    public async Task<ActionResult<ApiResponse<List<RankingItemResponse>>>> GetRanking(
+        [FromQuery] int take = 20)
     {
         var result = await _playerService.GetRankingAsync(take);
 
-        return Ok(ApiResponse<List<RankingItemResponse>>.Ok(result, "ranking loaded"));
+        return Ok(ApiResponse<List<RankingItemResponse>>.Ok(
+            result,
+            "랭킹 조회 성공"));
     }
 }

@@ -27,20 +27,44 @@ public class PlayerService : IPlayerService
         {
             profile = new PlayerProfile
             {
+                // Cognito sub
                 UserId = currentUser.UserId,
+
+                // 로그인 이메일
                 Email = currentUser.Email,
-                Nickname = "guest",
+
+                // Cognito name 속성
+                // Unity 회원가입 닉네임 사용
+                Nickname = string.IsNullOrWhiteSpace(currentUser.UserName)
+                    ? "guest"
+                    : currentUser.UserName,
+
+                // 기본 선택 캐릭터
                 SelectedCharacterId = "rice_farmer",
+
+                // 마지막 플레이 캐릭터
                 LastPlayedCharacterId = "rice_farmer",
+
+                // 최고 점수
                 BestScore = 0,
+
+                // 최고 레벨
                 HighestLevel = 0,
+
+                // 총 플레이 횟수
                 TotalPlayCount = 0,
+
+                // 누적 적 처치 수
                 TotalKillCount = 0,
+
+                // 기본 지급 캐릭터
                 UnlockedCharacterIds = new List<string>
                 {
                     "rice_farmer",
                     "barley_farmer"
                 },
+
+                // 마지막 수정 시각
                 UpdatedAtUtc = DateTime.UtcNow
             };
 
@@ -50,6 +74,7 @@ public class PlayerService : IPlayerService
         {
             var changed = false;
 
+            // 이메일 보정
             if (string.IsNullOrWhiteSpace(profile.Email) &&
                 !string.IsNullOrWhiteSpace(currentUser.Email))
             {
@@ -57,27 +82,35 @@ public class PlayerService : IPlayerService
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(profile.Nickname))
+            // 닉네임 보정
+            if (string.IsNullOrWhiteSpace(profile.Nickname) &&
+                !string.IsNullOrWhiteSpace(currentUser.UserName))
             {
-                profile.Nickname = "guest";
+                profile.Nickname = currentUser.UserName;
                 changed = true;
             }
 
-            if (profile.UnlockedCharacterIds == null || profile.UnlockedCharacterIds.Count == 0)
+            // 기본 캐릭터 보정
+            if (profile.UnlockedCharacterIds == null ||
+                profile.UnlockedCharacterIds.Count == 0)
             {
                 profile.UnlockedCharacterIds = new List<string>
                 {
                     "rice_farmer",
                     "barley_farmer"
                 };
+
                 changed = true;
             }
 
-            ApplyCharacterUnlocks(profile);
+            var unlockChanged = ApplyCharacterUnlocks(profile);
+
+            changed = changed || unlockChanged;
 
             if (changed)
             {
                 profile.UpdatedAtUtc = DateTime.UtcNow;
+
                 await _playerRepository.PutAsync(profile);
             }
         }
@@ -94,20 +127,44 @@ public class PlayerService : IPlayerService
         {
             profile = new PlayerProfile
             {
+                // Cognito sub
                 UserId = currentUser.UserId,
+
+                // 로그인 이메일
                 Email = currentUser.Email,
-                Nickname = "guest",
+
+                // Cognito name 속성
+                // Unity 회원가입 닉네임 사용
+                Nickname = string.IsNullOrWhiteSpace(currentUser.UserName)
+                    ? "guest"
+                    : currentUser.UserName,
+
+                // 기본 선택 캐릭터
                 SelectedCharacterId = "rice_farmer",
+
+                // 마지막 플레이 캐릭터
                 LastPlayedCharacterId = "rice_farmer",
+
+                // 최고 점수
                 BestScore = 0,
+
+                // 최고 레벨
                 HighestLevel = 0,
+
+                // 총 플레이 횟수
                 TotalPlayCount = 0,
+
+                // 누적 적 처치 수
                 TotalKillCount = 0,
+
+                // 기본 지급 캐릭터
                 UnlockedCharacterIds = new List<string>
                 {
                     "rice_farmer",
                     "barley_farmer"
                 },
+
+                // 마지막 수정 시각
                 UpdatedAtUtc = DateTime.UtcNow
             };
 
@@ -117,6 +174,7 @@ public class PlayerService : IPlayerService
         {
             var changed = false;
 
+            // 이메일 보정
             if (string.IsNullOrWhiteSpace(profile.Email) &&
                 !string.IsNullOrWhiteSpace(currentUser.Email))
             {
@@ -124,28 +182,35 @@ public class PlayerService : IPlayerService
                 changed = true;
             }
 
-            if (string.IsNullOrWhiteSpace(profile.Nickname))
+            // 닉네임 보정
+            if (string.IsNullOrWhiteSpace(profile.Nickname) &&
+                !string.IsNullOrWhiteSpace(currentUser.UserName))
             {
-                profile.Nickname = "guest";
+                profile.Nickname = currentUser.UserName;
                 changed = true;
             }
 
-            if (profile.UnlockedCharacterIds == null || profile.UnlockedCharacterIds.Count == 0)
+            // 기본 캐릭터 보정
+            if (profile.UnlockedCharacterIds == null ||
+                profile.UnlockedCharacterIds.Count == 0)
             {
                 profile.UnlockedCharacterIds = new List<string>
                 {
                     "rice_farmer",
                     "barley_farmer"
                 };
+
                 changed = true;
             }
 
             var unlockChanged = ApplyCharacterUnlocks(profile);
+
             changed = changed || unlockChanged;
 
             if (changed)
             {
                 profile.UpdatedAtUtc = DateTime.UtcNow;
+
                 await _playerRepository.PutAsync(profile);
             }
         }
@@ -154,8 +219,10 @@ public class PlayerService : IPlayerService
     }
 
     // 게임 종료 후 결과 저장
-    // 점수 = 이번 판 적 처치 수
-    public async Task<PlayerMeResponse> UpdateProgressAsync(AuthMeResponse currentUser, UpdateProgressRequest request)
+    // score = 이번 판 적 처치 수
+    public async Task<PlayerMeResponse> UpdateProgressAsync(
+        AuthMeResponse currentUser,
+        UpdateProgressRequest request)
     {
         var profile = await _playerRepository.GetByUserIdAsync(currentUser.UserId);
 
@@ -163,87 +230,78 @@ public class PlayerService : IPlayerService
         {
             profile = new PlayerProfile
             {
+                // Cognito sub
                 UserId = currentUser.UserId,
+
+                // 로그인 이메일
                 Email = currentUser.Email,
-                Nickname = "guest",
+
+                // Cognito name 속성
+                // Unity 회원가입 닉네임 사용
+                Nickname = string.IsNullOrWhiteSpace(currentUser.UserName)
+                    ? "guest"
+                    : currentUser.UserName,
+
+                // 기본 선택 캐릭터
                 SelectedCharacterId = "rice_farmer",
+
+                // 마지막 플레이 캐릭터
                 LastPlayedCharacterId = "rice_farmer",
+
+                // 최고 점수
                 BestScore = 0,
+
+                // 최고 레벨
                 HighestLevel = 0,
+
+                // 총 플레이 횟수
                 TotalPlayCount = 0,
+
+                // 누적 적 처치 수
                 TotalKillCount = 0,
+
+                // 기본 지급 캐릭터
                 UnlockedCharacterIds = new List<string>
                 {
                     "rice_farmer",
                     "barley_farmer"
                 },
+
+                // 마지막 수정 시각
                 UpdatedAtUtc = DateTime.UtcNow
             };
         }
 
+        // 마지막 플레이 캐릭터 저장
         if (!string.IsNullOrWhiteSpace(request.PlayedCharacterId))
         {
             profile.LastPlayedCharacterId = request.PlayedCharacterId;
         }
 
+        // 총 플레이 횟수 증가
         profile.TotalPlayCount += 1;
 
         // 점수 = 적 처치 수 누적
         profile.TotalKillCount += Math.Max(0, request.Score);
 
+        // 최고 점수 갱신
         if (request.Score > profile.BestScore)
         {
             profile.BestScore = request.Score;
-            profile.SelectedCharacterId = profile.LastPlayedCharacterId;
+
+            profile.SelectedCharacterId =
+                profile.LastPlayedCharacterId;
         }
 
+        // 최고 레벨 갱신
         if (request.Level > profile.HighestLevel)
         {
             profile.HighestLevel = request.Level;
         }
 
+        // 캐릭터 해금 처리
         ApplyCharacterUnlocks(profile);
 
-        profile.UpdatedAtUtc = DateTime.UtcNow;
-
-        await _playerRepository.PutAsync(profile);
-
-        return ToResponse(profile);
-    }
-
-    // 닉네임 저장 또는 수정
-    public async Task<PlayerMeResponse> SetNicknameAsync(AuthMeResponse currentUser, SetNicknameRequest request)
-    {
-        if (string.IsNullOrWhiteSpace(request.Nickname))
-        {
-            throw new ArgumentException("닉네임은 비워둘 수 없습니다.");
-        }
-
-        var profile = await _playerRepository.GetByUserIdAsync(currentUser.UserId);
-
-        if (profile == null)
-        {
-            profile = new PlayerProfile
-            {
-                UserId = currentUser.UserId,
-                Email = currentUser.Email,
-                Nickname = "guest",
-                SelectedCharacterId = "rice_farmer",
-                LastPlayedCharacterId = "rice_farmer",
-                BestScore = 0,
-                HighestLevel = 0,
-                TotalPlayCount = 0,
-                TotalKillCount = 0,
-                UnlockedCharacterIds = new List<string>
-                {
-                    "rice_farmer",
-                    "barley_farmer"
-                },
-                UpdatedAtUtc = DateTime.UtcNow
-            };
-        }
-
-        profile.Nickname = request.Nickname.Trim();
         profile.UpdatedAtUtc = DateTime.UtcNow;
 
         await _playerRepository.PutAsync(profile);
@@ -264,9 +322,13 @@ public class PlayerService : IPlayerService
             .Select((player, index) => new RankingItemResponse
             {
                 Rank = index + 1,
+
                 Nickname = player.Nickname,
+
                 BestScore = player.BestScore,
+
                 HighestLevel = player.HighestLevel,
+
                 TotalPlayCount = player.TotalPlayCount
             })
             .ToList();
@@ -274,11 +336,12 @@ public class PlayerService : IPlayerService
         return ranking;
     }
 
-    // 누적 처치 수에 따라 캐릭터 해금
+    // 누적 적 처치 수에 따른 캐릭터 해금
     private static bool ApplyCharacterUnlocks(PlayerProfile profile)
     {
         var changed = false;
 
+        // 기본 캐릭터 보정
         if (!profile.UnlockedCharacterIds.Contains("rice_farmer"))
         {
             profile.UnlockedCharacterIds.Add("rice_farmer");
@@ -291,6 +354,7 @@ public class PlayerService : IPlayerService
             changed = true;
         }
 
+        // 감자농부 해금
         if (profile.TotalKillCount >= PotatoFarmerUnlockKillCount &&
             !profile.UnlockedCharacterIds.Contains("potato_farmer"))
         {
@@ -298,6 +362,7 @@ public class PlayerService : IPlayerService
             changed = true;
         }
 
+        // 콩농부 해금
         if (profile.TotalKillCount >= BeanFarmerUnlockKillCount &&
             !profile.UnlockedCharacterIds.Contains("bean_farmer"))
         {
@@ -314,14 +379,23 @@ public class PlayerService : IPlayerService
         return new PlayerMeResponse
         {
             UserId = profile.UserId,
+
             Email = profile.Email,
+
             Nickname = profile.Nickname,
+
             SelectedCharacterId = profile.SelectedCharacterId,
+
             LastPlayedCharacterId = profile.LastPlayedCharacterId,
+
             BestScore = profile.BestScore,
+
             HighestLevel = profile.HighestLevel,
+
             TotalPlayCount = profile.TotalPlayCount,
+
             TotalKillCount = profile.TotalKillCount,
+
             UnlockedCharacterIds = profile.UnlockedCharacterIds
         };
     }
