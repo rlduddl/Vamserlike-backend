@@ -20,7 +20,7 @@ public class DynamoPlayerRepository : IPlayerRepository
         _tableName = dynamoOptions.Value.TableName;
     }
 
-    // UserId(Cognito sub)로 플레이어 1명 조회
+    // UserId로 플레이어 1명 조회
     public async Task<PlayerProfile?> GetByUserIdAsync(string userId)
     {
         var response = await _dynamoDb.GetItemAsync(new GetItemRequest
@@ -37,25 +37,7 @@ public class DynamoPlayerRepository : IPlayerRepository
             return null;
         }
 
-        var item = response.Item;
-
-        return new PlayerProfile
-        {
-            UserId = item["UserId"].S,
-            Email = GetString(item, "Email"),
-            Nickname = GetString(item, "Nickname", "guest"),
-            SelectedCharacterId = GetString(item, "SelectedCharacterId", "rice_farmer"),
-            LastPlayedCharacterId = GetString(item, "LastPlayedCharacterId", "rice_farmer"),
-            BestScore = GetInt(item, "BestScore"),
-            HighestLevel = GetInt(item, "HighestLevel"),
-            TotalPlayCount = GetInt(item, "TotalPlayCount"),
-            TotalKillCount = GetInt(item, "TotalKillCount"),
-            UnlockedCharacterIds = GetStringList(
-                item,
-                "UnlockedCharacterIds",
-                new List<string> { "rice_farmer", "barley_farmer" }),
-            UpdatedAtUtc = GetDateTime(item, "UpdatedAtUtc")
-        };
+        return FromItem(response.Item);
     }
 
     // 플레이어 전체 저장
@@ -68,15 +50,16 @@ public class DynamoPlayerRepository : IPlayerRepository
             ["UserId"] = new AttributeValue { S = profile.UserId },
             ["Email"] = new AttributeValue { S = profile.Email ?? string.Empty },
             ["Nickname"] = new AttributeValue { S = profile.Nickname ?? "guest" },
-            ["SelectedCharacterId"] = new AttributeValue { S = profile.SelectedCharacterId ?? "rice_farmer" },
-            ["LastPlayedCharacterId"] = new AttributeValue { S = profile.LastPlayedCharacterId ?? "rice_farmer" },
+            ["SelectedCharacterId"] = new AttributeValue { S = profile.SelectedCharacterId ?? string.Empty },
+            ["LastPlayedCharacterId"] = new AttributeValue { S = profile.LastPlayedCharacterId ?? string.Empty },
+            ["Gold"] = new AttributeValue { N = profile.Gold.ToString() },
             ["BestScore"] = new AttributeValue { N = profile.BestScore.ToString() },
             ["HighestLevel"] = new AttributeValue { N = profile.HighestLevel.ToString() },
             ["TotalPlayCount"] = new AttributeValue { N = profile.TotalPlayCount.ToString() },
             ["TotalKillCount"] = new AttributeValue { N = profile.TotalKillCount.ToString() },
             ["UnlockedCharacterIds"] = new AttributeValue
             {
-                S = JsonSerializer.Serialize(profile.UnlockedCharacterIds)
+                S = JsonSerializer.Serialize(profile.UnlockedCharacterIds ?? new List<string>())
             },
             ["UpdatedAtUtc"] = new AttributeValue { S = profile.UpdatedAtUtc.ToString("O") }
         };
@@ -96,30 +79,32 @@ public class DynamoPlayerRepository : IPlayerRepository
             TableName = _tableName
         });
 
-        var result = new List<PlayerProfile>();
+        return response.Items
+            .Select(FromItem)
+            .ToList();
+    }
 
-        foreach (var item in response.Items)
+    // DynamoDB item -> PlayerProfile 변환
+    private static PlayerProfile FromItem(Dictionary<string, AttributeValue> item)
+    {
+        return new PlayerProfile
         {
-            result.Add(new PlayerProfile
-            {
-                UserId = item["UserId"].S,
-                Email = GetString(item, "Email"),
-                Nickname = GetString(item, "Nickname", "guest"),
-                SelectedCharacterId = GetString(item, "SelectedCharacterId", "rice_farmer"),
-                LastPlayedCharacterId = GetString(item, "LastPlayedCharacterId", "rice_farmer"),
-                BestScore = GetInt(item, "BestScore"),
-                HighestLevel = GetInt(item, "HighestLevel"),
-                TotalPlayCount = GetInt(item, "TotalPlayCount"),
-                TotalKillCount = GetInt(item, "TotalKillCount"),
-                UnlockedCharacterIds = GetStringList(
-                    item,
-                    "UnlockedCharacterIds",
-                    new List<string> { "rice_farmer", "barley_farmer" }),
-                UpdatedAtUtc = GetDateTime(item, "UpdatedAtUtc")
-            });
-        }
-
-        return result;
+            UserId = GetString(item, "UserId"),
+            Email = GetString(item, "Email"),
+            Nickname = GetString(item, "Nickname", "guest"),
+            SelectedCharacterId = GetString(item, "SelectedCharacterId"),
+            LastPlayedCharacterId = GetString(item, "LastPlayedCharacterId"),
+            Gold = GetInt(item, "Gold"),
+            BestScore = GetInt(item, "BestScore"),
+            HighestLevel = GetInt(item, "HighestLevel"),
+            TotalPlayCount = GetInt(item, "TotalPlayCount"),
+            TotalKillCount = GetInt(item, "TotalKillCount"),
+            UnlockedCharacterIds = GetStringList(
+                item,
+                "UnlockedCharacterIds",
+                new List<string>()),
+            UpdatedAtUtc = GetDateTime(item, "UpdatedAtUtc")
+        };
     }
 
     // 문자열 읽기
@@ -128,7 +113,8 @@ public class DynamoPlayerRepository : IPlayerRepository
         string key,
         string defaultValue = "")
     {
-        if (item.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value.S))
+        if (item.TryGetValue(key, out var value) &&
+            !string.IsNullOrWhiteSpace(value.S))
         {
             return value.S;
         }
@@ -142,7 +128,8 @@ public class DynamoPlayerRepository : IPlayerRepository
         string key,
         int defaultValue = 0)
     {
-        if (item.TryGetValue(key, out var value) && int.TryParse(value.N, out var parsed))
+        if (item.TryGetValue(key, out var value) &&
+            int.TryParse(value.N, out var parsed))
         {
             return parsed;
         }
@@ -170,11 +157,13 @@ public class DynamoPlayerRepository : IPlayerRepository
         string key,
         List<string> defaultValue)
     {
-        if (item.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value.S))
+        if (item.TryGetValue(key, out var value) &&
+            !string.IsNullOrWhiteSpace(value.S))
         {
             try
             {
                 var parsed = JsonSerializer.Deserialize<List<string>>(value.S);
+
                 if (parsed != null)
                 {
                     return parsed;

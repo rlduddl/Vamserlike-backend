@@ -12,10 +12,13 @@ public class PlayerProfile
     public string Nickname { get; set; } = "guest";
 
     // 현재 선택 캐릭터
-    public string SelectedCharacterId { get; set; } = "rice_farmer";
+    public string SelectedCharacterId { get; set; } = string.Empty;
 
     // 마지막 플레이 캐릭터
-    public string LastPlayedCharacterId { get; set; } = "rice_farmer";
+    public string LastPlayedCharacterId { get; set; } = string.Empty;
+
+    // 보유 골드
+    public int Gold { get; set; } = 0;
 
     // 최고 점수
     public int BestScore { get; set; } = 0;
@@ -30,11 +33,8 @@ public class PlayerProfile
     public int TotalKillCount { get; set; } = 0;
 
     // 해금된 캐릭터 목록
-    public List<string> UnlockedCharacterIds { get; set; } = new()
-    {
-        "rice_farmer",
-        "barley_farmer"
-    };
+    // 기본값은 빈값, 클라가 open API 호출해서 열어야 함
+    public List<string> UnlockedCharacterIds { get; set; } = new();
 
     // 마지막 수정 시각
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;

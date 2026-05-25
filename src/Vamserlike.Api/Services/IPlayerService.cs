@@ -16,6 +16,13 @@ public interface IPlayerService
         AuthMeResponse currentUser,
         UpdateProgressRequest request);
 
+    // 캐릭터 해금
+    Task<PlayerMeResponse> UnlockCharacterAsync(
+        AuthMeResponse currentUser,
+        UnlockCharacterRequest request);
+
     // 랭킹 조회
-    Task<List<RankingItemResponse>> GetRankingAsync(int take);
+    Task<RankingResponse> GetRankingAsync(
+        AuthMeResponse? currentUser,
+        int take);
 }

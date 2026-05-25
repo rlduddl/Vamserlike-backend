@@ -17,6 +17,9 @@ builder.Services.Configure<CognitoOptions>(
 builder.Services.Configure<DynamoDbOptions>(
     builder.Configuration.GetSection("DynamoDb"));
 
+builder.Services.Configure<GameOptions>(
+    builder.Configuration.GetSection("Game"));
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 

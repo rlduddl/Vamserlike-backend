@@ -17,6 +17,9 @@ public class PlayerMeResponse
     // 마지막 플레이 캐릭터
     public string LastPlayedCharacterId { get; set; } = string.Empty;
 
+    // 보유 골드
+    public int Gold { get; set; }
+
     // 최고 점수
     public int BestScore { get; set; }
 

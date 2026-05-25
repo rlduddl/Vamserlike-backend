@@ -53,26 +53,61 @@ public class PlayerController : ControllerBase
     public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UpdateProgress(
         [FromBody] UpdateProgressRequest request)
     {
-        var currentUser = _authService.GetCurrentUser(User);
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
 
-        var result = await _playerService.UpdateProgressAsync(
-            currentUser,
-            request);
+            var result = await _playerService.UpdateProgressAsync(
+                currentUser,
+                request);
 
-        return Ok(ApiResponse<PlayerMeResponse>.Ok(
-            result,
-            "게임 결과 저장 완료"));
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(
+                result,
+                "게임 결과 저장 완료"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(
+                ex.Message));
+        }
+    }
+
+    // 캐릭터 해금
+    [HttpPut("me/characters/unlock")]
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UnlockCharacter(
+        [FromBody] UnlockCharacterRequest request)
+    {
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
+
+            var result = await _playerService.UnlockCharacterAsync(
+                currentUser,
+                request);
+
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(
+                result,
+                "캐릭터 해금 완료"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(
+                ex.Message));
+        }
     }
 
     // 랭킹 조회
-    [AllowAnonymous]
     [HttpGet("ranking")]
-    public async Task<ActionResult<ApiResponse<List<RankingItemResponse>>>> GetRanking(
+    public async Task<ActionResult<ApiResponse<RankingResponse>>> GetRanking(
         [FromQuery] int take = 20)
     {
-        var result = await _playerService.GetRankingAsync(take);
+        var currentUser = _authService.GetCurrentUser(User);
 
-        return Ok(ApiResponse<List<RankingItemResponse>>.Ok(
+        var result = await _playerService.GetRankingAsync(
+            currentUser,
+            take);
+
+        return Ok(ApiResponse<RankingResponse>.Ok(
             result,
             "랭킹 조회 성공"));
     }
