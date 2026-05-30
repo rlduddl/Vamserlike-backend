@@ -12,4 +12,7 @@ public interface IPlayerRepository
 
     // 랭킹용 전체 조회
     Task<List<PlayerProfile>> GetAllAsync();
+
+    // 모든 플레이어 데이터 삭제
+    Task<int> DeleteAllAsync();
 }

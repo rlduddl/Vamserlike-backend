@@ -84,6 +84,48 @@ public class DynamoPlayerRepository : IPlayerRepository
             .ToList();
     }
 
+    // 모든 플레이어 데이터 삭제
+    public async Task<int> DeleteAllAsync()
+    {
+        var deletedCount = 0;
+        Dictionary<string, AttributeValue>? lastEvaluatedKey = null;
+
+        do
+        {
+            var scanResponse = await _dynamoDb.ScanAsync(new ScanRequest
+            {
+                TableName = _tableName,
+                ProjectionExpression = "UserId",
+                ExclusiveStartKey = lastEvaluatedKey
+            });
+
+            foreach (var item in scanResponse.Items)
+            {
+                if (!item.TryGetValue("UserId", out var userId) ||
+                    string.IsNullOrWhiteSpace(userId.S))
+                {
+                    continue;
+                }
+
+                await _dynamoDb.DeleteItemAsync(new DeleteItemRequest
+                {
+                    TableName = _tableName,
+                    Key = new Dictionary<string, AttributeValue>
+                    {
+                        ["UserId"] = new AttributeValue { S = userId.S }
+                    }
+                });
+
+                deletedCount++;
+            }
+
+            lastEvaluatedKey = scanResponse.LastEvaluatedKey;
+
+        } while (lastEvaluatedKey != null && lastEvaluatedKey.Count > 0);
+
+        return deletedCount;
+    }
+
     // DynamoDB item -> PlayerProfile 변환
     private static PlayerProfile FromItem(Dictionary<string, AttributeValue> item)
     {

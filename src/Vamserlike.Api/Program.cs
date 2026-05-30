@@ -1,7 +1,6 @@
 using Amazon;
 using Amazon.CognitoIdentityProvider;
 using Amazon.DynamoDBv2;
-using Amazon.Runtime;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -79,11 +78,15 @@ var awsRegion =
 
 var regionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
 
+// Cognito 일반 API + Admin API 둘 다 사용
+// 로컬에서는 aws configure 자격증명 사용
+// EC2/EKS에서는 IAM Role 사용
 builder.Services.AddSingleton<IAmazonCognitoIdentityProvider>(_ =>
-    new AmazonCognitoIdentityProviderClient(
-        new AnonymousAWSCredentials(),
-        regionEndpoint));
+    new AmazonCognitoIdentityProviderClient(regionEndpoint));
 
+// DynamoDB 접근
+// 로컬에서는 aws configure 자격증명 사용
+// EC2/EKS에서는 IAM Role 사용
 builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
     new AmazonDynamoDBClient(regionEndpoint));
 
