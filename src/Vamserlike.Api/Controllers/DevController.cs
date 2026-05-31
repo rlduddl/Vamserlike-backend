@@ -14,7 +14,6 @@ namespace Vamserlike.Api.Controllers;
 [Route("api/dev")]
 public class DevController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
     private readonly IAmazonCognitoIdentityProvider _cognito;
     private readonly CognitoOptions _cognitoOptions;
     private readonly IAuthService _authService;
@@ -23,7 +22,6 @@ public class DevController : ControllerBase
     private readonly ILogger<DevController> _logger;
 
     public DevController(
-        IWebHostEnvironment env,
         IAmazonCognitoIdentityProvider cognito,
         IOptions<CognitoOptions> cognitoOptions,
         IAuthService authService,
@@ -31,7 +29,6 @@ public class DevController : ControllerBase
         IPlayerRepository playerRepository,
         ILogger<DevController> logger)
     {
-        _env = env;
         _cognito = cognito;
         _cognitoOptions = cognitoOptions.Value;
         _authService = authService;
@@ -40,18 +37,12 @@ public class DevController : ControllerBase
         _logger = logger;
     }
 
-    // 개발용 인증코드 회피 로그인
+    // 인증코드 회피 로그인
     // Cognito 유저 생성 + 강제 인증 + 비밀번호 설정 + 로그인 + Player Init
     [HttpPost("bypass-login")]
     public async Task<ActionResult<ApiResponse<DevBypassLoginResponse>>> BypassLogin(
         [FromBody] DevBypassLoginRequest request)
     {
-        if (!_env.IsDevelopment())
-        {
-            return NotFound(ApiResponse<DevBypassLoginResponse>.Fail(
-                "개발 환경에서만 사용 가능한 API입니다."));
-        }
-
         var email = request.Email.Trim().ToLowerInvariant();
         var password = request.Password;
         var nickname = request.Nickname.Trim();
@@ -115,7 +106,7 @@ public class DevController : ControllerBase
 
             return Ok(ApiResponse<DevBypassLoginResponse>.Ok(
                 response,
-                "개발용 인증코드 회피 로그인 완료"));
+                "인증코드 회피 로그인 완료"));
         }
         catch (Exception ex)
         {
@@ -129,18 +120,12 @@ public class DevController : ControllerBase
         }
     }
 
-    // 개발용 테스트 데이터 전체 초기화
+    // 테스트 데이터 전체 초기화
     // DynamoDB 플레이어 전체 삭제 + Cognito 유저 삭제
     [HttpDelete("reset-test-data")]
     public async Task<ActionResult<ApiResponse<DevResetResponse>>> ResetTestData(
         [FromBody] DevResetRequest request)
     {
-        if (!_env.IsDevelopment())
-        {
-            return NotFound(ApiResponse<DevResetResponse>.Fail(
-                "개발 환경에서만 사용 가능한 API입니다."));
-        }
-
         if (request.ConfirmText != "DELETE_TEST_DATA")
         {
             return BadRequest(ApiResponse<DevResetResponse>.Fail(
@@ -171,7 +156,7 @@ public class DevController : ControllerBase
 
             return Ok(ApiResponse<DevResetResponse>.Ok(
                 response,
-                "개발용 테스트 데이터 초기화 완료"));
+                "테스트 데이터 초기화 완료"));
         }
         catch (Exception ex)
         {
