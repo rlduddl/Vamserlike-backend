@@ -1,60 +1,25 @@
 using Amazon;
 using Amazon.CognitoIdentityProvider;
-using Amazon.DynamoDBv2;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
+using Amazon.Runtime;
 using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Repositories;
 using Vamserlike.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Cognito 설정 바인딩
+// appsettings.json 또는 appsettings.Development.json의 "Cognito" 섹션을 읽음
 builder.Services.Configure<CognitoOptions>(
     builder.Configuration.GetSection("Cognito"));
 
-builder.Services.Configure<DynamoDbOptions>(
-    builder.Configuration.GetSection("DynamoDb"));
-
-builder.Services.Configure<GameOptions>(
-    builder.Configuration.GetSection("Game"));
+// MySQL 설정 바인딩
+// appsettings.json 또는 환경변수 MySql__ConnectionString 값을 읽음
+builder.Services.Configure<MySqlOptions>(
+    builder.Configuration.GetSection("MySql"));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-
-builder.Services.AddSwaggerGen(options =>
-{
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Vamserlike API",
-        Version = "v1"
-    });
-
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Description = "Authorization 헤더에 Bearer {token} 입력",
-        Name = "Authorization",
-        In = ParameterLocation.Header,
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT"
-    });
-
-    options.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
-    });
-});
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(options =>
 {
@@ -67,10 +32,13 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Cognito 옵션 읽기
 var cognitoOptions =
     builder.Configuration.GetSection("Cognito").Get<CognitoOptions>()
     ?? new CognitoOptions();
 
+// AWS 리전 설정
+// AWS:Region 값이 있으면 우선 사용하고, 없으면 Cognito.Region 사용
 var awsRegion =
     builder.Configuration["AWS:Region"] ??
     cognitoOptions.Region ??
@@ -78,85 +46,22 @@ var awsRegion =
 
 var regionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
 
-// Cognito 일반 API + Admin API 둘 다 사용
-// 로컬에서는 aws configure 자격증명 사용
-// EC2/EKS에서는 IAM Role 사용
+// Cognito 클라이언트 등록
+// 기존 로그인/회원가입/인증코드 확인 기능은 그대로 Cognito 사용
 builder.Services.AddSingleton<IAmazonCognitoIdentityProvider>(_ =>
-    new AmazonCognitoIdentityProviderClient(regionEndpoint));
+    new AmazonCognitoIdentityProviderClient(
+        new AnonymousAWSCredentials(),
+        regionEndpoint));
 
-// DynamoDB 접근
-// 로컬에서는 aws configure 자격증명 사용
-// EC2/EKS에서는 IAM Role 사용
-builder.Services.AddSingleton<IAmazonDynamoDB>(_ =>
-    new AmazonDynamoDBClient(regionEndpoint));
+// 서비스 등록
+builder.Services.AddScoped<IAuthService, AuthService>();
 
-if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
-{
-    var issuer = $"https://cognito-idp.{awsRegion}.amazonaws.com/{cognitoOptions.UserPoolId}";
+// 기존 DynamoPlayerRepository 대신 MySqlPlayerRepository 사용
+builder.Services.AddScoped<IPlayerRepository, MySqlPlayerRepository>();
 
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
-        {
-            options.Authority = issuer;
-            options.RequireHttpsMetadata = true;
-
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuer = issuer,
-                ValidateLifetime = true,
-                ValidateAudience = false,
-                NameClaimType = "sub"
-            };
-
-            options.Events = new JwtBearerEvents
-            {
-                OnTokenValidated = context =>
-                {
-                    var principal = context.Principal;
-
-                    var tokenUse = principal?.FindFirst("token_use")?.Value;
-                    var clientId =
-                        principal?.FindFirst("client_id")?.Value ??
-                        principal?.FindFirst("aud")?.Value;
-
-                    if (string.IsNullOrWhiteSpace(tokenUse))
-                    {
-                        context.Fail("token_use claim is missing.");
-                        return Task.CompletedTask;
-                    }
-
-                    if (tokenUse != "access" && tokenUse != "id")
-                    {
-                        context.Fail("Only Cognito access/id tokens are allowed.");
-                        return Task.CompletedTask;
-                    }
-
-                    if (!string.IsNullOrWhiteSpace(cognitoOptions.ClientId) &&
-                        !string.Equals(clientId, cognitoOptions.ClientId, StringComparison.Ordinal))
-                    {
-                        context.Fail("Invalid Cognito app client.");
-                        return Task.CompletedTask;
-                    }
-
-                    return Task.CompletedTask;
-                }
-            };
-        });
-}
-else
-{
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer();
-}
+builder.Services.AddScoped<IPlayerService, PlayerService>();
 
 builder.Services.AddAuthorization();
-
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IPlayerRepository, DynamoPlayerRepository>();
-builder.Services.AddScoped<IPlayerService, PlayerService>();
 
 var app = builder.Build();
 
@@ -166,9 +71,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Docker/EKS 환경에서는 ALB 뒤에서 HTTP로 Health Check를 받을 수 있으므로
+// HTTPS 강제 리다이렉트는 일단 비활성화
+// app.UseHttpsRedirection();
+
 app.UseCors("UnityWeb");
-app.UseAuthentication();
+
 app.UseAuthorization();
 
 app.MapControllers();
