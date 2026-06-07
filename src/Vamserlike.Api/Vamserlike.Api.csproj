@@ -1,16 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
+    <!-- .NET 8 Web API 프로젝트 -->
     <TargetFramework>net8.0</TargetFramework>
+
+    <!-- null 안정성 체크 활성화 -->
     <Nullable>enable</Nullable>
+
+    <!-- System, Microsoft.AspNetCore 등 기본 using 자동 활성화 -->
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Cognito 로그인/회원가입 기능은 그대로 유지 -->
     <PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="4.0.6.10" />
-    <PackageReference Include="AWSSDK.DynamoDBv2" Version="4.0.17.8" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+
+    <!-- 기존 DynamoDB 대신 MySQL 접속을 위해 추가 -->
+    <PackageReference Include="MySqlConnector" Version="2.4.0" />
+
+    <!-- Swagger/OpenAPI 문서용 패키지 -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
   </ItemGroup>
 
 </Project>
