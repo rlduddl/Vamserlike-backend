@@ -24,7 +24,10 @@ public class HealthController : ControllerBase
     [HttpGet]
     public ActionResult<ApiResponse<object>> Get()
     {
-        _logger.LogInformation("HealthCheck Ok.....");
+        _logger.LogInformation(
+            "HealthCheckRequested Status={UtcNow} UtcNow={UtcNow}",
+            "ok",
+            DateTime.UtcNow); 
 
         return Ok(ApiResponse<object>.Ok(new
         {
