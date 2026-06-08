@@ -1,8 +1,10 @@
 using Amazon;
 using Amazon.CognitoIdentityProvider;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+
 using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Repositories;
 using Vamserlike.Api.Services;
@@ -162,12 +164,12 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                     if (!string.IsNullOrWhiteSpace(authHeader))
                     {
                         var previewLength = Math.Min(authHeader.Length, 40);
-                        Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
-                        Console.WriteLine($"Authorization header preview = {authHeader[..previewLength]}...");
+                        //Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
+                        //Console.WriteLine($"Authorization header preview = {authHeader[..previewLength]}...");
                     }
                     else
                     {
-                        Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
+                        //Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
                         Console.WriteLine("Authorization header is empty.");
                     }
 
@@ -202,23 +204,17 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                     var subject = principal?.FindFirst("sub")?.Value;
                     var issuerClaim = principal?.FindFirst("iss")?.Value;
 
-                    Console.WriteLine("========== JWT TOKEN VALIDATED ==========");
-                    Console.WriteLine($"sub               = {subject}");
-                    Console.WriteLine($"iss               = {issuerClaim}");
-                    Console.WriteLine($"token_use         = {tokenUse}");
-                    Console.WriteLine($"client_id/aud     = {clientId}");
-                    Console.WriteLine($"expected clientId = {cognitoOptions.ClientId}");
 
                     if (string.IsNullOrWhiteSpace(tokenUse))
                     {
-                        Console.WriteLine("JWT FAIL REASON = token_use claim is missing.");
+                        //Console.WriteLine("JWT FAIL REASON = token_use claim is missing.");
                         context.Fail("token_use claim is missing.");
                         return Task.CompletedTask;
                     }
 
                     if (tokenUse != "access" && tokenUse != "id")
                     {
-                        Console.WriteLine("JWT FAIL REASON = token_use is not access or id.");
+                        //Console.WriteLine("JWT FAIL REASON = token_use is not access or id.");
                         context.Fail("Only Cognito access/id tokens are allowed.");
                         return Task.CompletedTask;
                     }
@@ -226,12 +222,12 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                     if (!string.IsNullOrWhiteSpace(cognitoOptions.ClientId) &&
                         !string.Equals(clientId, cognitoOptions.ClientId, StringComparison.Ordinal))
                     {
-                        Console.WriteLine("JWT FAIL REASON = client_id mismatch.");
+                        //Console.WriteLine("JWT FAIL REASON = client_id mismatch.");
                         context.Fail("Invalid Cognito app client.");
                         return Task.CompletedTask;
                     }
 
-                    Console.WriteLine("JWT VALIDATION SUCCESS.");
+                    //Console.WriteLine("JWT VALIDATION SUCCESS.");
 
                     return Task.CompletedTask;
                 },
