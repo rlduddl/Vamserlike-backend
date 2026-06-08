@@ -28,7 +28,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
 // Swagger 설정
-// Swagger 우측 상단 Authorize 버튼에서 Bearer 토큰 입력 가능하게 유지
+// Swagger 우측 상단 Authorize 버튼에서 JWT 토큰 입력 가능하게 유지
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -38,9 +38,12 @@ builder.Services.AddSwaggerGen(options =>
         Description = "Vamserlike backend API"
     });
 
+    // 현재 설정은 Swagger Authorize 입력칸에 토큰값만 넣으면 됨
+    // 예: eyJraWQiOi...
+    // Swagger가 실제 요청에는 Authorization: Bearer {token} 형태로 붙여줌
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Authorization 헤더에 Bearer {token} 입력",
+        Description = "JWT 토큰만 입력하세요. 예: eyJraWQiOi...",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -88,6 +91,13 @@ var awsRegion =
 
 var regionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
 
+// 현재 앱이 읽은 Cognito 설정값 출력
+// 토큰값은 출력하지 않고, UserPoolId / ClientId만 확인용으로 출력
+Console.WriteLine("========== COGNITO CONFIG ==========");
+Console.WriteLine($"AWS Region  = {awsRegion}");
+Console.WriteLine($"UserPoolId  = {cognitoOptions.UserPoolId}");
+Console.WriteLine($"ClientId    = {cognitoOptions.ClientId}");
+
 // Cognito 클라이언트 등록
 // 로컬에서는 aws configure 자격증명 사용
 // EC2/EKS에서는 IAM Role 사용
@@ -101,26 +111,84 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
 {
     var issuer = $"https://cognito-idp.{awsRegion}.amazonaws.com/{cognitoOptions.UserPoolId}";
 
+    Console.WriteLine($"JWT Issuer  = {issuer}");
+    Console.WriteLine("====================================");
+
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(options =>
         {
+            // Cognito User Pool issuer
             options.Authority = issuer;
+
+            // Cognito OpenID 설정 주소 명시
+            options.MetadataAddress = $"{issuer}/.well-known/openid-configuration";
+
+            // Cognito는 HTTPS라 true 유지
             options.RequireHttpsMetadata = true;
+
+            // 401 원인을 조금 더 자세히 확인하기 위한 옵션
+            options.IncludeErrorDetails = true;
+
+            // Cognito 원본 claim 이름을 최대한 그대로 사용
+            options.MapInboundClaims = false;
 
             options.TokenValidationParameters = new TokenValidationParameters
             {
+                // issuer 검증
                 ValidateIssuer = true,
                 ValidIssuer = issuer,
+
+                // access token은 aud가 없고 client_id가 있음
+                // 그래서 audience 검증은 끄고, 아래 OnTokenValidated에서 client_id 직접 검증
+                ValidateAudience = false,
+
+                // 만료 시간 검증
                 ValidateLifetime = true,
 
-                // Cognito access token/id token 구조를 둘 다 받을 수 있게 기존 방식 유지
-                ValidateAudience = false,
+                // 시간 오차 허용
+                ClockSkew = TimeSpan.FromMinutes(5),
+
+                // 사용자 식별자는 Cognito sub 사용
                 NameClaimType = "sub"
             };
 
             options.Events = new JwtBearerEvents
             {
+                OnMessageReceived = context =>
+                {
+                    var authHeader = context.Request.Headers.Authorization.ToString();
+
+                    if (!string.IsNullOrWhiteSpace(authHeader))
+                    {
+                        var previewLength = Math.Min(authHeader.Length, 40);
+                        Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
+                        Console.WriteLine($"Authorization header preview = {authHeader[..previewLength]}...");
+                    }
+                    else
+                    {
+                        Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
+                        Console.WriteLine("Authorization header is empty.");
+                    }
+
+                    return Task.CompletedTask;
+                },
+
+                OnAuthenticationFailed = context =>
+                {
+                    Console.WriteLine("========== JWT AUTH FAILED ==========");
+                    Console.WriteLine($"Exception Type = {context.Exception.GetType().FullName}");
+                    Console.WriteLine($"Message        = {context.Exception.Message}");
+
+                    if (context.Exception.InnerException != null)
+                    {
+                        Console.WriteLine($"Inner Type     = {context.Exception.InnerException.GetType().FullName}");
+                        Console.WriteLine($"Inner Message  = {context.Exception.InnerException.Message}");
+                    }
+
+                    return Task.CompletedTask;
+                },
+
                 OnTokenValidated = context =>
                 {
                     var principal = context.Principal;
@@ -131,14 +199,26 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                         principal?.FindFirst("client_id")?.Value ??
                         principal?.FindFirst("aud")?.Value;
 
+                    var subject = principal?.FindFirst("sub")?.Value;
+                    var issuerClaim = principal?.FindFirst("iss")?.Value;
+
+                    Console.WriteLine("========== JWT TOKEN VALIDATED ==========");
+                    Console.WriteLine($"sub               = {subject}");
+                    Console.WriteLine($"iss               = {issuerClaim}");
+                    Console.WriteLine($"token_use         = {tokenUse}");
+                    Console.WriteLine($"client_id/aud     = {clientId}");
+                    Console.WriteLine($"expected clientId = {cognitoOptions.ClientId}");
+
                     if (string.IsNullOrWhiteSpace(tokenUse))
                     {
+                        Console.WriteLine("JWT FAIL REASON = token_use claim is missing.");
                         context.Fail("token_use claim is missing.");
                         return Task.CompletedTask;
                     }
 
                     if (tokenUse != "access" && tokenUse != "id")
                     {
+                        Console.WriteLine("JWT FAIL REASON = token_use is not access or id.");
                         context.Fail("Only Cognito access/id tokens are allowed.");
                         return Task.CompletedTask;
                     }
@@ -146,9 +226,21 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                     if (!string.IsNullOrWhiteSpace(cognitoOptions.ClientId) &&
                         !string.Equals(clientId, cognitoOptions.ClientId, StringComparison.Ordinal))
                     {
+                        Console.WriteLine("JWT FAIL REASON = client_id mismatch.");
                         context.Fail("Invalid Cognito app client.");
                         return Task.CompletedTask;
                     }
+
+                    Console.WriteLine("JWT VALIDATION SUCCESS.");
+
+                    return Task.CompletedTask;
+                },
+
+                OnChallenge = context =>
+                {
+                    Console.WriteLine("========== JWT CHALLENGE ==========");
+                    Console.WriteLine($"Error            = {context.Error}");
+                    Console.WriteLine($"ErrorDescription = {context.ErrorDescription}");
 
                     return Task.CompletedTask;
                 }
@@ -157,7 +249,8 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
 }
 else
 {
-    // UserPoolId가 비어있는 개발 환경에서 앱 자체는 뜨도록 기본 JWT 설정
+    Console.WriteLine("WARNING: Cognito UserPoolId is empty. Default JWT bearer config is used.");
+
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer();

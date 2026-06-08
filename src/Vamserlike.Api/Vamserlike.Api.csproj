@@ -12,23 +12,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Cognito 로그인/회원가입 기능은 그대로 유지 -->
+    <!-- Cognito 로그인/회원가입 기능 유지 -->
     <PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="4.0.6.10" />
 
     <!-- Cognito JWT Bearer 인증 검증용 -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.0" />
 
-    <!-- TokenValidationParameters 사용용 -->
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.0.0" />
-
-    <!-- Swagger OpenApiInfo / OpenApiSecurityScheme 사용용 -->
-    <PackageReference Include="Microsoft.OpenApi" Version="1.6.14" />
-
-    <!-- 기존 DynamoDB 대신 MySQL 접속을 위해 추가 -->
+    <!-- 기존 DynamoDB 대신 MySQL 접속 -->
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
 
     <!-- Swagger/OpenAPI 문서용 패키지 -->
-    <!-- .NET 8 기존 Swagger UI 호환을 위해 6.6.2 사용 -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
