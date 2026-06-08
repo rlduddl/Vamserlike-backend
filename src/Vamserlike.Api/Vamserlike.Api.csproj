@@ -13,8 +13,9 @@
 
   <ItemGroup>
     <!-- Cognito 로그인/회원가입 기능은 그대로 유지 -->
+    <PackageReference Include="AWS.Logger.AspNetCore" Version="4.0.2" />
     <PackageReference Include="AWSSDK.CognitoIdentityProvider" Version="4.0.6.10" />
-
+      <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <!-- 기존 DynamoDB 대신 MySQL 접속을 위해 추가 -->
     <PackageReference Include="MySqlConnector" Version="2.4.0" />
 

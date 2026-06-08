@@ -18,13 +18,6 @@ services:
       - appnetwork
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    logging:
-      driver: "awslogs"
-      options:
-        awslogs-region: "ap-northeast-2"
-        awslogs-group: "/ec2/vamserlike-backend" # 원하는 로그 그룹 이름
-        awslogs-create-group: "true" # 그룹이 없으면 자동으로 생성해줌
-        awslogs-stream: "backend-log-stream"
       
 networks:
   appnetwork:
