@@ -24,11 +24,12 @@ public class HealthController : ControllerBase
     [HttpGet]
     public ActionResult<ApiResponse<object>> Get()
     {
-        // 이렇게 JSON처럼 보이게 구조를 잡고, 아테나가 읽을 키(Key)를 넣어줘!
-        _logger.LogInformation("LogEvent: {EventName}, Status: {Status}, UtcNow: {UtcNow}",
-            "HealthCheck",
-            "ok",
-            DateTime.UtcNow);
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "HealthCheck",
+            Status = "ok",
+            UtcNow = DateTime.UtcNow
+        });
 
         return Ok(ApiResponse<object>.Ok(new
         {
