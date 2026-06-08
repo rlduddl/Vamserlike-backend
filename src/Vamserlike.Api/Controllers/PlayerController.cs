@@ -22,31 +22,93 @@ public class PlayerController : ControllerBase
         _playerService = playerService;
     }
 
+    // 로그인 후 최초 플레이어 데이터 생성
     [HttpPost("me/init")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> InitMe()
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> InitMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.InitializeMyPlayerAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "player initialized"));
+        var result = await _playerService.InitAsync(currentUser);
+
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(
+            result,
+            "플레이어 초기화 완료"));
     }
 
+    // 내 플레이어 정보 조회
     [HttpGet("me")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> GetMe()
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> GetMe()
     {
         var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.GetMyStateAsync(currentUser);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "player state"));
+        var result = await _playerService.GetMeAsync(currentUser);
+
+        return Ok(ApiResponse<PlayerMeResponse>.Ok(
+            result,
+            "플레이어 정보 조회 성공"));
     }
 
+    // 게임 결과 저장
     [HttpPut("me/progress")]
-    public async Task<ActionResult<ApiResponse<PlayerStateResponse>>> UpdateProgress(
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UpdateProgress(
         [FromBody] UpdateProgressRequest request)
     {
-        var currentUser = _authService.GetCurrentUser(User);
-        var result = await _playerService.UpdateMyProgressAsync(currentUser, request);
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
 
-        return Ok(ApiResponse<PlayerStateResponse>.Ok(result, "progress updated"));
+            var result = await _playerService.UpdateProgressAsync(
+                currentUser,
+                request);
+
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(
+                result,
+                "게임 결과 저장 완료"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(
+                ex.Message));
+        }
+    }
+
+    // 캐릭터 해금
+    [HttpPut("me/characters/unlock")]
+    public async Task<ActionResult<ApiResponse<PlayerMeResponse>>> UnlockCharacter(
+        [FromBody] UnlockCharacterRequest request)
+    {
+        try
+        {
+            var currentUser = _authService.GetCurrentUser(User);
+
+            var result = await _playerService.UnlockCharacterAsync(
+                currentUser,
+                request);
+
+            return Ok(ApiResponse<PlayerMeResponse>.Ok(
+                result,
+                "캐릭터 해금 완료"));
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ApiResponse<PlayerMeResponse>.Fail(
+                ex.Message));
+        }
+    }
+
+    // 랭킹 조회
+    [HttpGet("ranking")]
+    public async Task<ActionResult<ApiResponse<RankingResponse>>> GetRanking(
+        [FromQuery] int take = 20)
+    {
+        var currentUser = _authService.GetCurrentUser(User);
+
+        var result = await _playerService.GetRankingAsync(
+            currentUser,
+            take);
+
+        return Ok(ApiResponse<RankingResponse>.Ok(
+            result,
+            "랭킹 조회 성공"));
     }
 }
