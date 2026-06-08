@@ -19,6 +19,13 @@ services:
       - appnetwork
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-group: /ec2/vamserlike-backend
+        awslogs-region: ap-northeast-2
+        awslogs-stream: vamserlike-stream
+        awslogs-create-group: "true"
       
 networks:
   appnetwork:
