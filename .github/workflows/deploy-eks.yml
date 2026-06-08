@@ -1,0 +1,83 @@
+﻿name: Build and Deploy Backend to EKS
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - rlduddl5519
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: vamserlike-backend
+  MANIFEST_REPO: rlduddl/Vamserlike-k8s-manifests
+  MANIFEST_BRANCH: main
+  MANIFEST_PATH: overlays/dev/kustomization.yaml
+
+jobs:
+  build-and-update-manifest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout backend source
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set image variables
+        run: |
+          echo "IMAGE_TAG=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" >> $GITHUB_ENV
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} \
+            -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest \
+            .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
+
+      - name: Checkout Kubernetes manifest repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.MANIFEST_REPO }}
+          ref: ${{ env.MANIFEST_BRANCH }}
+          token: ${{ secrets.MANIFEST_REPO_PAT }}
+          path: manifests
+
+      - name: Update image tag in manifest repo
+        working-directory: manifests
+        run: |
+          sed -i "s|newTag: .*|newTag: ${IMAGE_TAG}|g" ${MANIFEST_PATH}
+
+          echo "Updated manifest:"
+          cat ${MANIFEST_PATH}
+
+      - name: Commit and push manifest changes
+        working-directory: manifests
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          git add ${MANIFEST_PATH}
+
+          if git diff --cached --quiet; then
+            echo "No manifest changes to commit."
+          else
+            git commit -m "Update backend image tag to ${IMAGE_TAG}"
+            git push origin ${MANIFEST_BRANCH}
+          fi
