@@ -1,9 +1,14 @@
+using Amazon.Runtime.Internal;
+
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
-using CognitoModel = Amazon.CognitoIdentityProvider.Model;
+
 using Vamserlike.Api.Dtos.Auth;
 using Vamserlike.Api.Dtos.Common;
 using Vamserlike.Api.Services;
+
+using CognitoModel = Amazon.CognitoIdentityProvider.Model;
 
 namespace Vamserlike.Api.Controllers;
 
@@ -12,10 +17,12 @@ namespace Vamserlike.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
+    private readonly ILogger<HealthController> _logger;
 
-    public AuthController(IAuthService authService)
+    public AuthController(IAuthService authService, ILogger<HealthController> logger)
     {
         _authService = authService;
+        _logger = logger;
     }
 
     // 회원가입
@@ -58,6 +65,16 @@ public class AuthController : ControllerBase
         {
             var result = await _authService.ConfirmSignUpAsync(request);
 
+            //회원가입 로그
+            _logger.LogInformation("{@LogData}", new
+            {
+                EventName = "UserRegist",
+                Email = request.Email, // 유저 식별자
+                Status = "ok",
+                
+                UtcNow = DateTime.UtcNow
+            });
+
             return Ok(ApiResponse<AuthActionResponse>.Ok(
                 result,
                 result.Message));
@@ -87,6 +104,18 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.LoginAsync(request);
+
+            //로그인 로그
+            _logger.LogInformation("{@LogData}", new
+            {
+                EventName = "UserLogin",
+                Email = request.Email, // 유저 식별자
+                Status = result.Status,
+                // 필요하다면 토큰 만료 시간 같은 것도 추가 가능
+                ExpiresIn = result.ExpiresIn,
+                UtcNow = DateTime.UtcNow
+            });
+
 
             return Ok(ApiResponse<LoginResponse>.Ok(
                 result,
@@ -183,7 +212,6 @@ public class AuthController : ControllerBase
     public ActionResult<ApiResponse<AuthMeResponse>> Me()
     {
         var me = _authService.GetCurrentUser(User);
-
         return Ok(ApiResponse<AuthMeResponse>.Ok(
             me,
             "현재 로그인 사용자"));

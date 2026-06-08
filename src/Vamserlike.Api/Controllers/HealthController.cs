@@ -1,7 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
-using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Dtos.Common;
 using Vamserlike.Api.Repositories;
 using Vamserlike.Api.Services;
