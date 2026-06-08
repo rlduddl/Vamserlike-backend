@@ -177,7 +177,8 @@ public class PlayerService : IPlayerService
             TotalKillCount = profile.TotalKillCount,
             BestScore = profile.BestScore,
             HighestLevel = profile.HighestLevel,
-            TotalPlayCount = profile.TotalPlayCount
+            TotalPlayCount = profile.TotalPlayCount,
+            IsGameClear = request.IsClear,
         });
 
         return ToResponse(profile);
