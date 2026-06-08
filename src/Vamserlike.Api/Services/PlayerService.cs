@@ -1,4 +1,7 @@
+using Amazon.Runtime.Internal;
+
 using Microsoft.Extensions.Options;
+
 using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Dtos.Auth;
 using Vamserlike.Api.Dtos.Game;
@@ -26,11 +29,15 @@ public class PlayerService : IPlayerService
     // 로그인 후 최초 플레이어 데이터 생성
     public async Task<PlayerMeResponse> InitAsync(AuthMeResponse currentUser)
     {
-        _logger.LogInformation(
-            "PlayerInitRequested UserId={UserId} Email={Email} Nickname={Nickname}",
-            currentUser.UserId,
-            currentUser.Email,
-            currentUser.UserName);
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "PlayerInitRequested",
+            UserId = currentUser.UserId,
+            Email = currentUser.Email,
+            Nickname = currentUser.UserName,
+            UtcNow = DateTime.UtcNow
+        });
+
 
         var profile = await _playerRepository.GetByUserIdAsync(currentUser.UserId);
 
@@ -84,10 +91,6 @@ public class PlayerService : IPlayerService
     // 내 플레이어 정보 조회
     public async Task<PlayerMeResponse> GetMeAsync(AuthMeResponse currentUser)
     {
-        _logger.LogInformation(
-            "PlayerMeRequested UserId={UserId} Email={Email}",
-            currentUser.UserId,
-            currentUser.Email);
 
         var profile = await _playerRepository.GetByUserIdAsync(currentUser.UserId);
 
@@ -96,6 +99,24 @@ public class PlayerService : IPlayerService
             profile = CreateDefaultProfile(currentUser);
             await _playerRepository.PutAsync(profile);
         }
+
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "PlayerMe",
+            Email = currentUser.Email, // 유저 식별자
+            Status = "ok",
+            Nickname = profile.Nickname,
+            SelectedCharacterId = profile.SelectedCharacterId,
+            Gold = profile.Gold,
+            BestScore = profile.BestScore,
+            HighestLevel = profile.HighestLevel,
+            TotalPlayCount = profile.TotalPlayCount,
+            TotalKillCount = profile.TotalKillCount,
+            UnlockedCharacterIds = profile.UnlockedCharacterIds,
+            UpdatedAtUtc = profile.UpdatedAtUtc,
+
+            UtcNow = DateTime.UtcNow
+        });
 
         return ToResponse(profile);
     }
@@ -112,16 +133,7 @@ public class PlayerService : IPlayerService
             profile = CreateDefaultProfile(currentUser);
         }
 
-        // 게임 결과 로그
-        _logger.LogInformation(
-            "GameResultReceived UserId={UserId} Nickname={Nickname} Character={Character} Score={Score} Level={Level} IsClear={IsClear}",
-            profile.UserId,
-            profile.Nickname,
-            request.PlayedCharacterId,
-            request.Score,
-            request.Level,
-            request.IsClear);
-
+        
         // 마지막 플레이 캐릭터 저장
         if (!string.IsNullOrWhiteSpace(request.PlayedCharacterId))
         {
@@ -154,14 +166,19 @@ public class PlayerService : IPlayerService
 
         await _playerRepository.PutAsync(profile);
 
-        _logger.LogInformation(
-            "GameResultSaved UserId={UserId} Gold={Gold} TotalKillCount={TotalKillCount} BestScore={BestScore} HighestLevel={HighestLevel} TotalPlayCount={TotalPlayCount}",
-            profile.UserId,
-            profile.Gold,
-            profile.TotalKillCount,
-            profile.BestScore,
-            profile.HighestLevel,
-            profile.TotalPlayCount);
+
+        // 게임 결과 로그
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "GameClearResult",
+            UserId = profile.UserId,
+            Email = profile.Email,
+            Gold = profile.Gold,
+            TotalKillCount = profile.TotalKillCount,
+            BestScore = profile.BestScore,
+            HighestLevel = profile.HighestLevel,
+            TotalPlayCount = profile.TotalPlayCount
+        });
 
         return ToResponse(profile);
     }
@@ -187,12 +204,6 @@ public class PlayerService : IPlayerService
 
         profile.UnlockedCharacterIds ??= new List<string>();
 
-        _logger.LogInformation(
-            "CharacterUnlockRequested UserId={UserId} Nickname={Nickname} CharacterId={CharacterId} CurrentGold={Gold}",
-            profile.UserId,
-            profile.Nickname,
-            characterId,
-            profile.Gold);
 
         if (profile.UnlockedCharacterIds.Contains(characterId))
         {
@@ -224,12 +235,14 @@ public class PlayerService : IPlayerService
 
         await _playerRepository.PutAsync(profile);
 
-        _logger.LogInformation(
-            "CharacterUnlocked UserId={UserId} CharacterId={CharacterId} Cost={Cost} RemainingGold={Gold}",
-            profile.UserId,
-            characterId,
-            cost,
-            profile.Gold);
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "CharacterUnlocked",
+            UserId = profile.UserId,
+            CharacterId = characterId,
+            Cost = cost,
+            RemainingGold = profile.Gold
+        });
 
         return ToResponse(profile);
     }
