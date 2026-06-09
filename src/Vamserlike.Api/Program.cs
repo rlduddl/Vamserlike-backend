@@ -170,7 +170,7 @@ if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
                     else
                     {
                         //Console.WriteLine("========== JWT MESSAGE RECEIVED ==========");
-                        Console.WriteLine("Authorization header is empty.");
+                        //Console.WriteLine("Authorization header is empty.");
                     }
 
                     return Task.CompletedTask;
