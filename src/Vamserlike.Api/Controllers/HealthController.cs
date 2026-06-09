@@ -1,10 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
-using Vamserlike.Api.Configurations;
 using Vamserlike.Api.Dtos.Common;
-using Vamserlike.Api.Repositories;
-using Vamserlike.Api.Services;
 
 namespace Vamserlike.Api.Controllers;
 
@@ -24,10 +20,12 @@ public class HealthController : ControllerBase
     [HttpGet]
     public ActionResult<ApiResponse<object>> Get()
     {
-        _logger.LogInformation(
-            "HealthCheckRequested Status={UtcNow} UtcNow={UtcNow}",
-            "ok",
-            DateTime.UtcNow); 
+        _logger.LogInformation("{@LogData}", new
+        {
+            EventName = "HealthCheck",
+            Status = "ok",
+            UtcNow = DateTime.UtcNow
+        });
 
         return Ok(ApiResponse<object>.Ok(new
         {
