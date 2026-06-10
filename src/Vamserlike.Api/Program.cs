@@ -262,17 +262,21 @@ builder.Services.AddScoped<IPlayerService, PlayerService>();
 
 builder.Services.AddAuthorization();
 
+
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
+// Production / EKS / ALB 환경에서도 Swagger 표시
+app.UseSwagger();
 
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Vamserlike.Api v1");
-    });
-}
+app.UseSwaggerUI(options =>
+{
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Vamserlike.Api v1");
+    options.RoutePrefix = "swagger";
+});
+
+// Backend ALB 루트 주소로 접속하면 Swagger로 이동
+// http://Backend_ALB/ -> http://Backend_ALB/swagger
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 // Docker/EKS/ALB 환경에서는 HTTP Health Check를 받을 수 있으므로 비활성화
 // app.UseHttpsRedirection();
