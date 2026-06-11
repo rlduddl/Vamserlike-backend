@@ -91,12 +91,12 @@ var awsRegion =
     cognitoOptions.Region ??
     "ap-northeast-2";
 
-var regionEndpoint = RegionEndpoint.GetBySystemName(awsRegion);
+var regionEndpoint = RegionEndpoint.GetBySystemName(cognitoOptions.Region);
 
 // 현재 앱이 읽은 Cognito 설정값 출력
 // 토큰값은 출력하지 않고, UserPoolId / ClientId만 확인용으로 출력
 Console.WriteLine("========== COGNITO CONFIG ==========");
-Console.WriteLine($"AWS Region  = {awsRegion}");
+Console.WriteLine($"AWS Region  = {cognitoOptions.Region}");
 Console.WriteLine($"UserPoolId  = {cognitoOptions.UserPoolId}");
 Console.WriteLine($"ClientId    = {cognitoOptions.ClientId}");
 
@@ -111,7 +111,7 @@ builder.Services.AddSingleton<IAmazonCognitoIdentityProvider>(_ =>
 // 기존 토큰 검증 흐름 유지
 if (!string.IsNullOrWhiteSpace(cognitoOptions.UserPoolId))
 {
-    var issuer = $"https://cognito-idp.{awsRegion}.amazonaws.com/{cognitoOptions.UserPoolId}";
+    var issuer = $"https://cognito-idp.{cognitoOptions.Region}.amazonaws.com/{cognitoOptions.UserPoolId}";
 
     Console.WriteLine($"JWT Issuer  = {issuer}");
     Console.WriteLine("====================================");
